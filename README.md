@@ -109,4 +109,22 @@ type execFunc func(stmt *sql.Stmt, source interface{}) error
 These functions are used to execute a prepared statement multiple times, or to pass complex arguments. You have an example at the top of this README.<br />
 
 ### Methods
-Soon.
+```Golang
+// Prepares statements. Is always called in other methods
+func (rq Request) PrepareStmt() (*sql.Stmt, error) {}
+
+// Retrieve rows from query
+func (rq Request) GetRows(args ...interface{}) (*sql.Rows, error) {}
+
+// Retrieve rows from query + Scan rows in receiver
+func (rq Request) GetRowsAndScan(args ...interface{}) error {}
+
+// Retrieve first row from query
+func (rq Request) GetOneRow(args ...interface{}) (*sql.Row, error) {}
+
+// Retrieve first row from query + Scan row in receiver
+func (rq Request) GetOneRowAndScan(args ...interface{}) error {}
+
+// Execute query, via given function and source parameters if present
+func (rq Request) ExecQuery() error {}
+```
