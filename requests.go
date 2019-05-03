@@ -12,42 +12,43 @@ type (
 	// (which can be *sql.DB or *sql.Tx), during or outside transactions.
 	Request struct {
 		SQLHandler interface{} // might be *sql.Tx or *sql.DB
-		Query      string      // full Query string
-		Statement  string      // statement part of query
-		Table      string      // targetted table of query
-		Condition  string      // optionnal condition of query
-		ScanFunc   scanFunc    // described below
-		Receiver   interface{} // receiver for ScanFunc
+		Query      Query       // Query structure
 		ExecFunc   execFunc    // described below
-		Source     interface{} // source for ExecFunc
+		Arg        interface{} // for ExecFunc or scan functions
 	}
 
-	// Scan function which takes *sql.Row or *sql.Rows as a first argument, and
-	// a pointer to where row.Scan will store results (a struct or a slice of structs)
-	scanFunc func(row interface{}, receiver interface{}) error
+	// Query is a structure used to concatenate queries
+	Query struct {
+		Query     string // full Query string
+		Statement string // statement part of query
+		Table     string // targetted table of query
+		Condition string // optionnal condition of query
+	}
 
 	// Exec function which takes *sql.Stmt as a first argument, and executes the
 	// prepared query with the given arguments
 	execFunc func(stmt *sql.Stmt, source interface{}) error
 )
 
-// PrepareStmt prepares rq.Query via rq.SQLHandler. If rq.Query is empty, it
-// will concatenate the query with rq.Statement, rq.Table, and rq.Condition
-func (rq Request) PrepareStmt() (*sql.Stmt, error) {
-
-	// If empty query, concatenate
-	if rq.Query == "" {
-		rq.Query = rq.Statement + " " + rq.Table + " " + rq.Condition
+// String checks creates a Query string from its other parameters if its Query
+// parameter is empty
+func (q Query) String() string {
+	if q.Query == "" {
+		return q.Statement + " " + q.Table + " " + q.Condition
 	}
+	return q.Query
+}
 
-	// Prepare statement
+// PrepareStmt prepares rq.Query via rq.SQLHandler. If rq.Query is empty, it
+// will concatenate the query with rq.Stmt, rq.DBTable, and rq.Condition
+func (rq Request) PrepareStmt() (*sql.Stmt, error) {
 	switch r := rq.SQLHandler.(type) {
 	case *sql.DB:
-		return r.Prepare(rq.Query)
+		return r.Prepare(rq.Query.String())
 	case *sql.Tx:
-		return r.Prepare(rq.Query)
+		return r.Prepare(rq.Query.String())
 	default:
-		return nil, fmt.Errorf("wrong type passed to PrepareStmt: %T (expected *sql.DB or *sql.Tx)", r)
+		return nil, fmt.Errorf("wrong type passed to PrepareStatementQuery %T (expected *sql.DB or *sql.Tx)", r)
 	}
 
 }
@@ -80,7 +81,7 @@ func (rq Request) GetRowsAndScan(args ...interface{}) error {
 	defer rows.Close()
 
 	// Scan rows into receiver
-	return scanRows(rows, rq.Receiver)
+	return scanRows(rows, rq.Arg)
 }
 
 // GetOneRow makes a prepared query and returns the resulted row. This function
@@ -110,7 +111,7 @@ func (rq Request) GetOneRowAndScan(args ...interface{}) error {
 	}
 
 	// Scan row into receiver
-	return scanOneRow(row, rq.Receiver)
+	return scanOneRow(row, rq.Arg)
 }
 
 // ScanRow scans from row (can be *sql.Row or *sql.Rows) into passed pointers
@@ -277,7 +278,7 @@ func storeToStruct(st reflect.Value, values []interface{}) error {
 }
 
 // ExecQuery prepares a query which does not return a row, then calls the given
-// ExecFunc with the passed Source. This function can be used during and outside
+// ExecFunc with the passed Arg. This function can be used during and outside
 // of transactions.
 func (rq Request) ExecQuery(args ...interface{}) error {
 
@@ -290,7 +291,7 @@ func (rq Request) ExecQuery(args ...interface{}) error {
 
 	// If an execFunc was given, execute it
 	if rq.ExecFunc != nil {
-		return rq.ExecFunc(stmt, rq.Source)
+		return rq.ExecFunc(stmt, rq.Arg)
 	}
 
 	// Otherwise, execute statement with given arguments

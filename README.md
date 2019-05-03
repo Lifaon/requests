@@ -1,14 +1,19 @@
 # Requests
+
 A structure and its methods, to simplify MySQL requests.
 
 ## Installation
-Simply use the `go get` command to install the package to your $GOPATH:
-```
-$ go get github.com/mlantonn/requests
+
+Simply use the `go get` command to install the package to your \$GOPATH:
+
+```sh
+go get github.com/mlantonn/requests
 ```
 
 ## Usage
+
 Here is what a basic usage looks like:
+
 ```Golang
 type Users []User
 type User {
@@ -46,9 +51,12 @@ func insertUsers(stmt *sql.Stmt, source interface{}) error {
     return nil
 }
 ```
+
 ### The Request structure
+
 _Request_ is a structure which contains:
-- An **SQLHandler** (can be _*sql.DB_ or _*sql.Tx_), used to make requests during or outside transactions.
+
+- An **SQLHandler** (can be _\*sql.DB_ or _\*sql.Tx_), used to make requests during or outside transactions.
 - The query, taking form either:
   - As a whole: **Query**
   - In split parts: **Statement** (INSERT, UPDATE, etc), **Table** (targetted table), and **Condition** (WHERE, etc)
@@ -56,6 +64,7 @@ _Request_ is a structure which contains:
 - An **ExecFunc** andd its **Source**, to execute the query once or multiple times, with complex parameters
 
 Here's the full structure:
+
 ```Golang
 type Request struct {
     SQLHandler interface{} // might be *sql.Tx or *sql.DB
@@ -71,11 +80,15 @@ type Request struct {
 ```
 
 ### The functions from Request structure
+
 #### ScanFunc
+
 ```Golang
 type scanFunc func(row interface{}, receiver interface{}) error
 ```
+
 These functions are used to scan from *sql.Row or *sql.Rows (via already existing `ScanRow` function) and store the result in the given receiver, which should be a pointer to a structure, a slice of structures, or any other logical storage form. Here is an example of a `scanFunc`:<br />
+
 ```Golang
 type User {
     ID    uint64
@@ -103,12 +116,15 @@ func scanUser(row interface{}, ptr interface{}) error {
 ```
 
 #### ExecFunc
+
 ```Golang
 type execFunc func(stmt *sql.Stmt, source interface{}) error
 ```
+
 These functions are used to execute a prepared statement multiple times, or to pass complex arguments. You have an example at the top of this README.<br />
 
 ### Methods
+
 ```Golang
 // Prepares statements. Is always called in other methods
 func (rq Request) PrepareStmt() (*sql.Stmt, error) {}
