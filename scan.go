@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"reflect"
 	"time"
+
+	"github.com/mlantonn/WSK_Watcher/utils"
 )
 
 // scan and store values into pointed structure
@@ -12,11 +14,11 @@ func scanOneRow(row *sql.Row, ptr interface{}) error {
 
 	v := reflect.ValueOf(ptr)
 	if v.Kind() != reflect.Ptr {
-		return fmt.Errorf("passed value should be a pointer to structure, got: %T", v.Interface())
+		return fmt.Errorf("passed value should be a pointer to structure, got: %s", utils.GetReflectType(v))
 	}
 	elem := v.Elem()
 	if elem.Kind() != reflect.Struct {
-		return fmt.Errorf("pointed value should be a structure, got: %T", elem.Interface())
+		return fmt.Errorf("pointed value should be a structure, got: %s", utils.GetReflectType(elem))
 	}
 
 	// Scan into slice of interface
@@ -33,14 +35,14 @@ func scanRows(rows *sql.Rows, ptr interface{}) error {
 
 	v := reflect.ValueOf(ptr)
 	if v.Kind() != reflect.Ptr {
-		return fmt.Errorf("passed value should be a pointer to slice of structures, got: %T", v.Interface())
+		return fmt.Errorf("passed value should be a pointer to slice of structures, got: %s", utils.GetReflectType(v))
 	}
 	elem := v.Elem()
 	if elem.Kind() != reflect.Slice {
-		return fmt.Errorf("pointed value should be a slice of structures, got: %T", elem.Interface())
+		return fmt.Errorf("pointed value should be a slice of structures, got: %s", utils.GetReflectType(elem))
 	}
 	if !elem.CanSet() {
-		return fmt.Errorf("pointed value (of type %T) is not settable", elem.Kind())
+		return fmt.Errorf("pointed value (of type %s) is not settable", utils.GetReflectType(elem))
 	}
 
 	if !rows.Next() {
@@ -59,7 +61,7 @@ func scanRows(rows *sql.Rows, ptr interface{}) error {
 	for i := 0; ; i++ {
 		f := elem.Index(i)
 		if !f.CanSet() {
-			return fmt.Errorf("index #%d of created slice (of type %T) is not settable", i, elem.Kind())
+			return fmt.Errorf("index #%d of created slice (of type %s) is not settable", i, utils.GetReflectType(elem))
 		}
 		err := rows.Scan(valuesptr...)
 		if err != nil {
@@ -84,7 +86,7 @@ func storeToStruct(st reflect.Value, values []interface{}) error {
 		// Retrieve structure field
 		f := st.Field(i)
 		if !f.CanSet() {
-			return fmt.Errorf("structure field #%d of type %T is not settable", i, f.Interface())
+			return fmt.Errorf("structure field #%d of type %s is not settable", i, utils.GetReflectType(f))
 		}
 		// Set structure field
 		switch val := value.(type) {
@@ -109,7 +111,7 @@ func storeToStruct(st reflect.Value, values []interface{}) error {
 			case reflect.TypeOf(&b): // *bool
 				f.Set(reflect.ValueOf(&b))
 			default:
-				return fmt.Errorf("structure field #%d doesn't have the right type (expected: []byte, *[]byte, string, *string, bool, or *bool, got: %T)", i, f.Interface())
+				return fmt.Errorf("structure field #%d doesn't have the right type (expected: []byte, *[]byte, string, *string, bool, or *bool, got: %s)", i, utils.GetReflectType(f))
 			}
 		case int64:
 			// struct field: int64 or *int64
@@ -119,7 +121,7 @@ func storeToStruct(st reflect.Value, values []interface{}) error {
 			case reflect.TypeOf(&val): // *int64
 				f.Set(reflect.ValueOf(&val))
 			default:
-				return fmt.Errorf("structure field #%d doesn't have the right type (expected: int64 or *int64, got: %T)", i, f.Interface())
+				return fmt.Errorf("structure field #%d doesn't have the right type (expected: int64 or *int64, got: %s)", i, utils.GetReflectType(f))
 			}
 		case float64:
 			// struct field: float64 or *float64
@@ -129,7 +131,7 @@ func storeToStruct(st reflect.Value, values []interface{}) error {
 			case reflect.TypeOf(&val): // *float64
 				f.Set(reflect.ValueOf(&val))
 			default:
-				return fmt.Errorf("structure field #%d doesn't have the right type (expected: float64 or *float64, got: %T)", i, f.Interface())
+				return fmt.Errorf("structure field #%d doesn't have the right type (expected: float64 or *float64, got: %s)", i, utils.GetReflectType(f))
 			}
 		case time.Time:
 			// struct field: time.Time or *time.Time
@@ -139,14 +141,14 @@ func storeToStruct(st reflect.Value, values []interface{}) error {
 			case reflect.TypeOf(&val): // *time.Time
 				f.Set(reflect.ValueOf(&val))
 			default:
-				return fmt.Errorf("structure field #%d doesn't have the right type (expected: time.Time or *time.Time, got: %T)", i, f.Interface())
+				return fmt.Errorf("structure field #%d doesn't have the right type (expected: time.Time or *time.Time, got: %s)", i, utils.GetReflectType(f))
 			}
 		case nil:
 			// struct field: any pointer
 			if f.Kind() == reflect.Ptr {
 				f.Set(reflect.Zero(f.Type()))
 			} else {
-				return fmt.Errorf("structure field #%d isn't a pointer when value can be <nil>, got: %T", i, f.Interface())
+				return fmt.Errorf("structure field #%d isn't a pointer when value can be <nil>, got: %s", i, utils.GetReflectType(f))
 			}
 		default:
 			// unsupported type retrieved from *sql.Row(s).Scan()
