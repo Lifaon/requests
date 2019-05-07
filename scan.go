@@ -27,7 +27,10 @@ func scanOneRow(row *sql.Row, ptr interface{}) error {
 	for i := range values {
 		valuesptr[i] = &(values[i])
 	}
-	row.Scan(valuesptr...)
+	err := row.Scan(valuesptr...)
+	if err != nil {
+		return err
+	}
 	return storeToStruct(elem, values)
 }
 
