@@ -66,10 +66,10 @@ func (rq Request) GetRows(args ...interface{}) (*sql.Rows, error) {
 	return stmt.Query(args...)
 }
 
-// GetRowsAndScan retrieves rows from given query, then calls the passed
+// GetRowsIntoStructs retrieves rows from given query, then calls the passed
 // ScanFunc for each row to store results directly into the Receiver (usually
 // pointing to a slice of structures)
-func (rq Request) GetRowsAndScan(args ...interface{}) error {
+func (rq Request) GetRowsIntoStructs(args ...interface{}) error {
 
 	// Retrieve rows
 	rows, err := rq.GetRows(args...)
@@ -97,10 +97,26 @@ func (rq Request) GetOneRow(args ...interface{}) (*sql.Row, error) {
 	return stmt.QueryRow(args...), nil
 }
 
-// GetOneRowAndScan retrieves the first row from given query, then calls the
+// GetOneField makes a prepared query and returns the resulted row. This function
+// can be used during and outside of transactions.
+func (rq Request) GetOneField(field interface{}) (interface{}, error) {
+
+	// Retrieve row
+	row, err := rq.GetOneRow(field)
+	if err != nil {
+		return nil, err
+	}
+
+	// Scan result
+	var i interface{}
+	err = row.Scan(&i)
+	return i, err
+}
+
+// GetOneRowIntoStruct retrieves the first row from given query, then calls the
 // passed ScanFunc to store results directly into the Receiver (usually pointing
 // to a structure)
-func (rq Request) GetOneRowAndScan(args ...interface{}) error {
+func (rq Request) GetOneRowIntoStruct(args ...interface{}) error {
 
 	// Retrieve row
 	row, err := rq.GetOneRow(args...)

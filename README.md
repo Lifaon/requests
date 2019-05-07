@@ -133,13 +133,13 @@ func (rq Request) PrepareStmt() (*sql.Stmt, error) {}
 func (rq Request) GetRows(args ...interface{}) (*sql.Rows, error) {}
 
 // Retrieve rows from query + Scan rows in receiver
-func (rq Request) GetRowsAndScan(args ...interface{}) error {}
+func (rq Request) GetRowsIntoStructs(args ...interface{}) error {}
 
 // Retrieve first row from query
 func (rq Request) GetOneRow(args ...interface{}) (*sql.Row, error) {}
 
 // Retrieve first row from query + Scan row in receiver
-func (rq Request) GetOneRowAndScan(args ...interface{}) error {}
+func (rq Request) GetOneRowIntoStruct(args ...interface{}) error {}
 
 // Execute query, via given function and source parameters if present
 func (rq Request) ExecQuery() error {}
