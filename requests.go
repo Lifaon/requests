@@ -11,8 +11,7 @@ type (
 	Request struct {
 		SQLHandler interface{} // might be *sql.Tx or *sql.DB
 		Query      Query       // Query structure
-		ExecFunc   execFunc    // described below
-		Arg        interface{} // for ExecFunc or scan functions
+		Arg        interface{} // for scan functions
 	}
 
 	// Query is a structure used to concatenate queries
@@ -23,10 +22,6 @@ type (
 		Set       string // optionnal set parameter of query
 		Condition string // optionnal condition of query
 	}
-
-	// Exec function which takes *sql.Stmt as a first argument, and executes the
-	// prepared query with the given arguments
-	execFunc func(stmt *sql.Stmt, source interface{}) error
 )
 
 // String checks creates a Query string from its other parameters if its Query
@@ -100,10 +95,10 @@ func (rq Request) GetOneRow(args ...interface{}) (*sql.Row, error) {
 
 // GetOneField makes a prepared query and returns the resulted row. This function
 // can be used during and outside of transactions.
-func (rq Request) GetOneField(field interface{}) error {
+func (rq Request) GetOneField(args ...interface{}) error {
 
 	// Retrieve row
-	row, err := rq.GetOneRow(field)
+	row, err := rq.GetOneRow(args...)
 	if err != nil {
 		return err
 	}
@@ -145,21 +140,15 @@ func (rq Request) GetIntoOneStruct(args ...interface{}) error {
 // ExecQuery prepares a query which does not return a row, then calls the given
 // ExecFunc with the passed Arg. This function can be used during and outside
 // of transactions.
-func (rq Request) ExecQuery(args ...interface{}) error {
+func (rq Request) ExecQuery(args ...interface{}) (sql.Result, error) {
 
 	// Prepare statement
 	stmt, err := rq.PrepareStmt()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer stmt.Close()
 
-	// If an execFunc was given, execute it
-	if rq.ExecFunc != nil {
-		return rq.ExecFunc(stmt, rq.Arg)
-	}
-
-	// Otherwise, execute statement with given arguments
-	_, err = stmt.Exec(args...)
-	return err
+	// Execute statement with given arguments
+	return stmt.Exec(args...)
 }
