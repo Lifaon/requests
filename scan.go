@@ -130,6 +130,42 @@ func scanToSliceOfPtr(row *sql.Row, slice interface{}) error {
 	return nil
 }
 
+// Scan and store results into slice of a single value
+func scanToSlice(rows *sql.Rows, ptr interface{}) error {
+
+	// Check that passed value is a pointer to a slice of structures
+	v := reflect.ValueOf(ptr)
+	if v.Kind() != reflect.Ptr {
+		return fmt.Errorf("passed value should be a pointer to a slice, got: %s", v.Type().String())
+	}
+	elem := v.Elem()
+	if elem.Kind() != reflect.Slice {
+		return fmt.Errorf("pointed value should be a slice, got: %s", elem.Type().String())
+	}
+
+	// Get zeroed field
+	zeroedField := reflect.Zero(elem.Type().Elem())
+
+	// Store each row
+	for i := 0; rows.Next(); i++ {
+		// Scan row
+		var result interface{}
+		if err := rows.Scan(&result); err != nil {
+			return err
+		}
+		// Append slice
+		if !elem.CanSet() {
+			return errors.New("value from pointed slice is not settable")
+		}
+		elem.Set(reflect.Append(elem, zeroedField))
+		// Store results
+		if err := storeToField(elem.Index(i), result, i); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Store scanned result to pointed value
 func storeIntoPtr(ptr reflect.Value, result interface{}, index int) error {
 	// Check that passed value is a pointer

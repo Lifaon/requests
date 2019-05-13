@@ -78,6 +78,22 @@ func (rq Request) GetIntoStructs(args ...interface{}) error {
 	return scanToSliceOfStruct(rows, rq.Arg)
 }
 
+// GetIntoSlice retrieves rows from given query, then calls the passed
+// ScanFunc for each row to store results directly into the Receiver (usually
+// pointing to a slice of structures)
+func (rq Request) GetIntoSlice(args ...interface{}) error {
+
+	// Retrieve rows
+	rows, err := rq.GetRows(args...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	// Scan rows into receiver
+	return scanToSlice(rows, rq.Arg)
+}
+
 // GetOneRow makes a prepared query and returns the resulted row. This function
 // can be used during and outside of transactions.
 func (rq Request) GetOneRow(args ...interface{}) (*sql.Row, error) {
