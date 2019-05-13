@@ -20,6 +20,7 @@ type (
 		Query     string // full Query string
 		Statement string // statement part of query
 		Table     string // targetted table of query
+		Set       string // optionnal set parameter of query
 		Condition string // optionnal condition of query
 	}
 
@@ -32,7 +33,7 @@ type (
 // parameter is empty
 func (q Query) String() string {
 	if q.Query == "" {
-		return q.Statement + " " + q.Table + " " + q.Condition
+		return q.Statement + " " + q.Table + " " + q.Set + " " + q.Condition
 	}
 	return q.Query
 }
@@ -66,10 +67,10 @@ func (rq Request) GetRows(args ...interface{}) (*sql.Rows, error) {
 	return stmt.Query(args...)
 }
 
-// GetRowsIntoStructs retrieves rows from given query, then calls the passed
+// GetIntoStructs retrieves rows from given query, then calls the passed
 // ScanFunc for each row to store results directly into the Receiver (usually
 // pointing to a slice of structures)
-func (rq Request) GetRowsIntoStructs(args ...interface{}) error {
+func (rq Request) GetIntoStructs(args ...interface{}) error {
 
 	// Retrieve rows
 	rows, err := rq.GetRows(args...)
@@ -79,7 +80,7 @@ func (rq Request) GetRowsIntoStructs(args ...interface{}) error {
 	defer rows.Close()
 
 	// Scan rows into receiver
-	return scanRows(rows, rq.Arg)
+	return scanToSliceOfStruct(rows, rq.Arg)
 }
 
 // GetOneRow makes a prepared query and returns the resulted row. This function
@@ -99,24 +100,22 @@ func (rq Request) GetOneRow(args ...interface{}) (*sql.Row, error) {
 
 // GetOneField makes a prepared query and returns the resulted row. This function
 // can be used during and outside of transactions.
-func (rq Request) GetOneField(field interface{}) (interface{}, error) {
+func (rq Request) GetOneField(field interface{}) error {
 
 	// Retrieve row
 	row, err := rq.GetOneRow(field)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	// Scan result
-	var i interface{}
-	err = row.Scan(&i)
-	return i, err
+	// Scan to ptr
+	return scanToOnePtr(row, rq.Arg)
 }
 
-// GetOneRowIntoStruct retrieves the first row from given query, then calls the
+// GetFields retrieves the first row from given query, then calls the
 // passed ScanFunc to store results directly into the Receiver (usually pointing
-// to a structure)
-func (rq Request) GetOneRowIntoStruct(args ...interface{}) error {
+// to a slice)
+func (rq Request) GetFields(args ...interface{}) error {
 
 	// Retrieve row
 	row, err := rq.GetOneRow(args...)
@@ -125,7 +124,22 @@ func (rq Request) GetOneRowIntoStruct(args ...interface{}) error {
 	}
 
 	// Scan row into receiver
-	return scanOneRow(row, rq.Arg)
+	return scanToSliceOfPtr(row, rq.Arg)
+}
+
+// GetIntoOneStruct retrieves the first row from given query, then calls the
+// passed ScanFunc to store results directly into the Receiver (usually pointing
+// to a structure)
+func (rq Request) GetIntoOneStruct(args ...interface{}) error {
+
+	// Retrieve row
+	row, err := rq.GetOneRow(args...)
+	if err != nil {
+		return err
+	}
+
+	// Scan row into receiver
+	return scanToOneStruct(row, rq.Arg)
 }
 
 // ExecQuery prepares a query which does not return a row, then calls the given

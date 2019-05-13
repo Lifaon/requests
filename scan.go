@@ -2,161 +2,228 @@ package requests
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"reflect"
 	"time"
-
-	"github.com/mlantonn/WSK_Watcher/utils"
 )
 
-// scan and store values into pointed structure
-func scanOneRow(row *sql.Row, ptr interface{}) error {
+// Scan and store results into pointed structure
+func scanToOneStruct(row *sql.Row, ptr interface{}) error {
 
 	v := reflect.ValueOf(ptr)
 	if v.Kind() != reflect.Ptr {
-		return fmt.Errorf("passed value should be a pointer to structure, got: %s", utils.GetReflectType(v))
+		return fmt.Errorf("passed value should be a pointer to structure, got: %s", v.Type().String())
 	}
 	elem := v.Elem()
 	if elem.Kind() != reflect.Struct {
-		return fmt.Errorf("pointed value should be a structure, got: %s", utils.GetReflectType(elem))
+		return fmt.Errorf("pointed value should be a structure, got: %s", elem.Type().String())
 	}
 
 	// Scan into slice of interface
-	values := make([]interface{}, elem.NumField())
-	valuesptr := make([]interface{}, elem.NumField())
-	for i := range values {
-		valuesptr[i] = &(values[i])
+	results := make([]interface{}, elem.NumField())
+	resultsPtr := make([]interface{}, elem.NumField())
+	for i := range results {
+		resultsPtr[i] = &(results[i])
 	}
-	err := row.Scan(valuesptr...)
+	err := row.Scan(resultsPtr...)
 	if err != nil {
 		return err
 	}
-	return storeToStruct(elem, values)
+	return storeIntoStruct(elem, results)
 }
 
-func scanRows(rows *sql.Rows, ptr interface{}) error {
+// Scan and store results into pointed slice of structures
+func scanToSliceOfStruct(rows *sql.Rows, ptr interface{}) error {
 
+	// Check that passed value is a pointer to a slice of structures
 	v := reflect.ValueOf(ptr)
 	if v.Kind() != reflect.Ptr {
-		return fmt.Errorf("passed value should be a pointer to slice of structures, got: %s", utils.GetReflectType(v))
+		return fmt.Errorf("passed value should be a pointer to a slice of structures, got: %s", v.Type().String())
 	}
 	elem := v.Elem()
 	if elem.Kind() != reflect.Slice {
-		return fmt.Errorf("pointed value should be a slice of structures, got: %s", utils.GetReflectType(elem))
+		return fmt.Errorf("pointed value should be a slice of structures, got: %s", elem.Type().String())
 	}
-	if !elem.CanSet() {
-		return fmt.Errorf("pointed value (of type %s) is not settable", utils.GetReflectType(elem))
-	}
-
-	if !rows.Next() {
-		return nil
+	sliceType := elem.Type().Elem()
+	if sliceType.Kind() != reflect.Struct {
+		return fmt.Errorf("pointed slice should store structures, got: %s", sliceType.String())
 	}
 
-	elem.Set(reflect.MakeSlice(elem.Type(), 1, 1))
+	// Get zeroed structure
+	zeroedSt := reflect.Zero(sliceType)
 
-	size := elem.Index(0).NumField()
-	values := make([]interface{}, size)
-	valuesptr := make([]interface{}, size)
-	for i := range values {
-		valuesptr[i] = &(values[i])
+	// Make slice of interfaces to scan rows
+	size := zeroedSt.NumField()
+	results := make([]interface{}, size)
+	resultsPtr := make([]interface{}, size)
+	for i := range results {
+		resultsPtr[i] = &(results[i])
 	}
 
-	for i := 0; ; i++ {
-		f := elem.Index(i)
-		if !f.CanSet() {
-			return fmt.Errorf("index #%d of created slice (of type %s) is not settable", i, utils.GetReflectType(elem))
-		}
-		err := rows.Scan(valuesptr...)
-		if err != nil {
+	// Store each row
+	for i := 0; rows.Next(); i++ {
+		// Scan row
+		if err := rows.Scan(resultsPtr...); err != nil {
 			return err
 		}
-		err = storeToStruct(f, values)
-		if err != nil {
-			return err
+		// Append slice
+		if !elem.CanSet() {
+			return errors.New("structure from pointed slice is not settable")
 		}
-		if rows.Next() {
-			elem.Set(reflect.Append(elem, f))
-		} else {
-			break
+		elem.Set(reflect.Append(elem, zeroedSt))
+		// Store results
+		if err := storeIntoStruct(elem.Index(i), results); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-// store scanned values to structure
-func storeToStruct(st reflect.Value, values []interface{}) error {
-	for i, value := range values {
-		// Retrieve structure field
+// Store scanned results to one structure
+func storeIntoStruct(st reflect.Value, results []interface{}) error {
+	for i, result := range results {
 		f := st.Field(i)
-		if !f.CanSet() {
-			return fmt.Errorf("structure field #%d of type %s is not settable", i, utils.GetReflectType(f))
+		if err := storeToField(f, result, i+1); err != nil {
+			return err
 		}
-		// Set structure field
-		switch val := value.(type) {
-		case []byte:
-			// struct field: []byte, *[]byte, string, *string, bool, or *bool
-			s := string(val)
-			b := false
-			if len(val) != 0 && val[0] != 0 {
-				b = true
-			}
-			switch f.Type() {
-			case reflect.TypeOf(val): // []byte
-				f.SetBytes(val)
-			case reflect.TypeOf(&val): // *[]byte
-				f.Set(reflect.ValueOf(&val))
-			case reflect.TypeOf(s): // string
-				f.SetString(s)
-			case reflect.TypeOf(&s): // *string
-				f.Set(reflect.ValueOf(&s))
-			case reflect.TypeOf(b): // bool
-				f.SetBool(b)
-			case reflect.TypeOf(&b): // *bool
-				f.Set(reflect.ValueOf(&b))
-			default:
-				return fmt.Errorf("structure field #%d doesn't have the right type (expected: []byte, *[]byte, string, *string, bool, or *bool, got: %s)", i, utils.GetReflectType(f))
-			}
-		case int64:
-			// struct field: int64 or *int64
-			switch f.Type() {
-			case reflect.TypeOf(val): // int64
-				f.SetInt(val)
-			case reflect.TypeOf(&val): // *int64
-				f.Set(reflect.ValueOf(&val))
-			default:
-				return fmt.Errorf("structure field #%d doesn't have the right type (expected: int64 or *int64, got: %s)", i, utils.GetReflectType(f))
-			}
-		case float64:
-			// struct field: float64 or *float64
-			switch f.Type() {
-			case reflect.TypeOf(val): // float64
-				f.SetFloat(val)
-			case reflect.TypeOf(&val): // *float64
-				f.Set(reflect.ValueOf(&val))
-			default:
-				return fmt.Errorf("structure field #%d doesn't have the right type (expected: float64 or *float64, got: %s)", i, utils.GetReflectType(f))
-			}
-		case time.Time:
-			// struct field: time.Time or *time.Time
-			switch f.Type() {
-			case reflect.TypeOf(val): // time.Time
-				f.Set(reflect.ValueOf(val))
-			case reflect.TypeOf(&val): // *time.Time
-				f.Set(reflect.ValueOf(&val))
-			default:
-				return fmt.Errorf("structure field #%d doesn't have the right type (expected: time.Time or *time.Time, got: %s)", i, utils.GetReflectType(f))
-			}
-		case nil:
-			// struct field: any pointer
-			if f.Kind() == reflect.Ptr {
-				f.Set(reflect.Zero(f.Type()))
-			} else {
-				return fmt.Errorf("structure field #%d isn't a pointer when value can be <nil>, got: %s", i, utils.GetReflectType(f))
-			}
+	}
+	return nil
+}
+
+// Scan and store results into pointed result
+func scanToOnePtr(row *sql.Row, ptr interface{}) error {
+	// Scan into interface
+	var result interface{}
+	err := row.Scan(&result)
+	if err != nil {
+		return err
+	}
+	// Store scanned result to pointed result
+	return storeIntoPtr(reflect.ValueOf(ptr), result, 1)
+}
+
+// Scan and store results into slice of pointed results
+func scanToSliceOfPtr(row *sql.Row, slice interface{}) error {
+	// Check that passed value is a slice
+	elem := reflect.ValueOf(slice)
+	if elem.Kind() != reflect.Slice {
+		return fmt.Errorf("passed value must be a slice of pointers, got: %s", elem.Type().String())
+	}
+	// Scan into slice of interface
+	results := make([]interface{}, elem.Len())
+	resultsPtr := make([]interface{}, elem.Len())
+	for i := range results {
+		resultsPtr[i] = &(results[i])
+	}
+	err := row.Scan(resultsPtr...)
+	if err != nil {
+		return err
+	}
+	// Store scanned results into pointed values
+	for i, result := range results {
+		pt := elem.Index(i)
+		if err := storeIntoPtr(pt, result, i+1); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Store scanned result to pointed value
+func storeIntoPtr(ptr reflect.Value, result interface{}, index int) error {
+	// Check that passed value is a pointer
+	if ptr.Kind() != reflect.Ptr {
+		return fmt.Errorf("passed value should be a pointer to structure, got: %s", ptr.Type().String())
+	}
+	elem := ptr.Elem()
+	// Store result
+	return storeToField(elem, result, index)
+}
+
+func storeToField(v reflect.Value, result interface{}, i int) error {
+	// Check that passed element is settable
+	if !v.CanSet() {
+		return fmt.Errorf("field #%d isn't settable", i)
+	}
+	// Set element
+	elemType := v.Type().String()
+	switch val := result.(type) {
+	case []byte:
+		// type of elem: []byte, *[]byte, string, *string, bool, or *bool
+		valptr := new([]byte)
+		*valptr = val
+		s := string(val)
+		sptr := new(string)
+		*sptr = s
+		b := false
+		if len(val) != 0 && val[0] != 0 {
+			b = true
+		}
+		bptr := new(bool)
+		*bptr = b
+		switch v.Type() {
+		case reflect.TypeOf(val): // []byte
+			v.SetBytes(val)
+		case reflect.TypeOf(valptr): // *[]byte
+			v.Set(reflect.ValueOf(valptr))
+		case reflect.TypeOf(s): // string
+			v.SetString(s)
+		case reflect.TypeOf(sptr): // *string
+			v.Set(reflect.ValueOf(sptr))
+		case reflect.TypeOf(b): // bool
+			v.SetBool(b)
+		case reflect.TypeOf(bptr): // *bool
+			v.Set(reflect.ValueOf(bptr))
 		default:
-			// unsupported type retrieved from *sql.Row(s).Scan()
-			return fmt.Errorf("unsupported type retrieved from *sql.Row(s).Scan(): %T", val)
+			return fmt.Errorf("field #%d doesn't have the right type (expected: []byte, *[]byte, string, *string, bool, or *bool, got: %s)", i, elemType)
 		}
+	case int64:
+		valptr := new(int64)
+		*valptr = val
+		// type of elem: int64 or *int64
+		switch v.Type() {
+		case reflect.TypeOf(val): // int64
+			v.SetInt(val)
+		case reflect.TypeOf(valptr): // *int64
+			v.Set(reflect.ValueOf(valptr))
+		default:
+			return fmt.Errorf("field #%d doesn't have the right type (expected: int64 or *int64, got: %s)", i, elemType)
+		}
+	case float64:
+		valptr := new(float64)
+		*valptr = val
+		// type of elem: float64 or *float64
+		switch v.Type() {
+		case reflect.TypeOf(val): // float64
+			v.SetFloat(val)
+		case reflect.TypeOf(valptr): // *float64
+			v.Set(reflect.ValueOf(valptr))
+		default:
+			return fmt.Errorf("field #%d doesn't have the right type (expected: float64 or *float64, got: %s)", i, elemType)
+		}
+	case time.Time:
+		valptr := new(time.Time)
+		*valptr = val
+		// type of elem: time.Time or *time.Time
+		switch v.Type() {
+		case reflect.TypeOf(val): // time.Time
+			v.Set(reflect.ValueOf(val))
+		case reflect.TypeOf(valptr): // *time.Time
+			v.Set(reflect.ValueOf(valptr))
+		default:
+			return fmt.Errorf("field #%d doesn't have the right type (expected: time.Time or *time.Time, got: %s)", i, elemType)
+		}
+	case nil:
+		// type of elem: any pointer
+		if v.Kind() == reflect.Ptr {
+			v.Set(reflect.Zero(v.Type()))
+		} else {
+			return fmt.Errorf("field #%d isn't a pointer when result can be <nil>, got: %s", i, elemType)
+		}
+	default:
+		// unsupported type retrieved from *sql.Row(s).Scan()
+		return fmt.Errorf("unsupported type retrieved from *sql.Row(s).Scan(): %T", val)
 	}
 	return nil
 }
