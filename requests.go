@@ -24,6 +24,11 @@ type (
 	}
 )
 
+// FromHandler returns an initialized Request with given SQL Handler (Tx or DB)
+func FromHandler(handler interface{}) Request {
+	return Request{SQLHandler: handler}
+}
+
 // String checks creates a Query string from its other parameters if its Query
 // parameter is empty
 func (q Query) String() string {

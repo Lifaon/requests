@@ -187,66 +187,63 @@ func storeToField(v reflect.Value, result interface{}, i int) error {
 	switch val := result.(type) {
 	case []byte:
 		// type of elem: []byte, *[]byte, string, *string, bool, or *bool
-		valptr := new([]byte)
-		*valptr = val
 		s := string(val)
-		sptr := new(string)
-		*sptr = s
-		b := false
-		if len(val) != 0 && val[0] != 0 {
-			b = true
-		}
-		bptr := new(bool)
-		*bptr = b
+		b := len(val) != 0 && val[0] != 0
 		switch v.Type() {
 		case reflect.TypeOf(val): // []byte
 			v.SetBytes(val)
-		case reflect.TypeOf(valptr): // *[]byte
-			v.Set(reflect.ValueOf(valptr))
+		case reflect.TypeOf(&val): // *[]byte
+			ptr := new([]byte)
+			*ptr = val
+			v.Set(reflect.ValueOf(ptr))
 		case reflect.TypeOf(s): // string
 			v.SetString(s)
-		case reflect.TypeOf(sptr): // *string
-			v.Set(reflect.ValueOf(sptr))
+		case reflect.TypeOf(&s): // *string
+			ptr := new(string)
+			*ptr = s
+			v.Set(reflect.ValueOf(ptr))
 		case reflect.TypeOf(b): // bool
 			v.SetBool(b)
-		case reflect.TypeOf(bptr): // *bool
-			v.Set(reflect.ValueOf(bptr))
+		case reflect.TypeOf(&b): // *bool
+			ptr := new(bool)
+			*ptr = b
+			v.Set(reflect.ValueOf(ptr))
 		default:
 			return fmt.Errorf("field #%d doesn't have the right type (expected: []byte, *[]byte, string, *string, bool, or *bool, got: %s)", i, elemType)
 		}
 	case int64:
-		valptr := new(int64)
-		*valptr = val
 		// type of elem: int64 or *int64
 		switch v.Type() {
 		case reflect.TypeOf(val): // int64
 			v.SetInt(val)
-		case reflect.TypeOf(valptr): // *int64
-			v.Set(reflect.ValueOf(valptr))
+		case reflect.TypeOf(&val): // *int64
+			ptr := new(int64)
+			*ptr = val
+			v.Set(reflect.ValueOf(ptr))
 		default:
 			return fmt.Errorf("field #%d doesn't have the right type (expected: int64 or *int64, got: %s)", i, elemType)
 		}
 	case float64:
-		valptr := new(float64)
-		*valptr = val
 		// type of elem: float64 or *float64
 		switch v.Type() {
 		case reflect.TypeOf(val): // float64
 			v.SetFloat(val)
-		case reflect.TypeOf(valptr): // *float64
-			v.Set(reflect.ValueOf(valptr))
+		case reflect.TypeOf(&val): // *float64
+			ptr := new(float64)
+			*ptr = val
+			v.Set(reflect.ValueOf(ptr))
 		default:
 			return fmt.Errorf("field #%d doesn't have the right type (expected: float64 or *float64, got: %s)", i, elemType)
 		}
 	case time.Time:
-		valptr := new(time.Time)
-		*valptr = val
 		// type of elem: time.Time or *time.Time
 		switch v.Type() {
 		case reflect.TypeOf(val): // time.Time
 			v.Set(reflect.ValueOf(val))
-		case reflect.TypeOf(valptr): // *time.Time
-			v.Set(reflect.ValueOf(valptr))
+		case reflect.TypeOf(&val): // *time.Time
+			ptr := new(time.Time)
+			*ptr = val
+			v.Set(reflect.ValueOf(ptr))
 		default:
 			return fmt.Errorf("field #%d doesn't have the right type (expected: time.Time or *time.Time, got: %s)", i, elemType)
 		}
