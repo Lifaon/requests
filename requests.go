@@ -2,6 +2,7 @@ package requests
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 )
 
@@ -23,6 +24,9 @@ type (
 		Condition string // optionnal condition of query
 	}
 )
+
+// ErrNoArg is for functions that should scan rows but have no passed argument
+var ErrNoArg = errors.New("no passed argument, can not scan")
 
 // FromHandler returns an initialized Request with given SQL Handler (Tx or DB)
 func FromHandler(handler interface{}) Request {
@@ -79,6 +83,10 @@ func (rq Request) GetIntoStructs(args ...interface{}) error {
 	}
 	defer rows.Close()
 
+	if rq.Arg == nil {
+		return ErrNoArg
+	}
+
 	// Scan rows into receiver
 	return scanToSliceOfStruct(rows, rq.Arg)
 }
@@ -94,6 +102,10 @@ func (rq Request) GetIntoSlice(args ...interface{}) error {
 		return err
 	}
 	defer rows.Close()
+
+	if rq.Arg == nil {
+		return ErrNoArg
+	}
 
 	// Scan rows into receiver
 	return scanToSlice(rows, rq.Arg)
@@ -124,6 +136,10 @@ func (rq Request) GetOneField(args ...interface{}) error {
 		return err
 	}
 
+	if rq.Arg == nil {
+		return ErrNoArg
+	}
+
 	// Scan to ptr
 	return scanToOnePtr(row, rq.Arg)
 }
@@ -139,6 +155,10 @@ func (rq Request) GetFields(args ...interface{}) error {
 		return err
 	}
 
+	if rq.Arg == nil {
+		return ErrNoArg
+	}
+
 	// Scan row into receiver
 	return scanToSliceOfPtr(row, rq.Arg)
 }
@@ -152,6 +172,10 @@ func (rq Request) GetIntoOneStruct(args ...interface{}) error {
 	row, err := rq.GetOneRow(args...)
 	if err != nil {
 		return err
+	}
+
+	if rq.Arg == nil {
+		return ErrNoArg
 	}
 
 	// Scan row into receiver
