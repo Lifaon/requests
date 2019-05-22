@@ -14,22 +14,25 @@ func (rq Request) InsertStructs(slice interface{}) error {
 	if elem.Kind() != reflect.Slice {
 		return fmt.Errorf("passed value should be a slice of structures, got: %s", elem.Type().String())
 	}
-
-	// Create insert query
 	if elem.Len() == 0 {
 		return fmt.Errorf("passed slice is empty")
 	}
-	if err := rq.prepareInsert(elem.Type().Elem()); err != nil {
-		return err
+	// Check that passed slice stores structures
+	st := elem.Type().Elem()
+	if st.Kind() != reflect.Struct {
+		return fmt.Errorf("passed slice should store structures, got: %s", st.String())
 	}
 
-	// prepare statement
+	// Create insert query
+	if err := rq.prepareInsert(st); err != nil {
+		return err
+	}
+	// Prepare statement
 	stmt, err := rq.PrepareStmt()
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
-
 	// Insert each structure
 	for i := 0; i < elem.Len(); i++ {
 		if err := insertStruct(stmt, elem.Index(i)); err != nil {
@@ -39,75 +42,113 @@ func (rq Request) InsertStructs(slice interface{}) error {
 	return nil
 }
 
-// InsertOneStruct inserts a single structure into the given table
+// InsertOneStruct inserts one structure into the given table
 func (rq Request) InsertOneStruct(structure interface{}) error {
-
 	// Check that passed value is a structure
 	elem := reflect.ValueOf(structure)
 	if elem.Kind() != reflect.Struct {
 		return fmt.Errorf("passed value should be a structure, got: %s", elem.Type().String())
 	}
-
 	// Create insert query
 	if err := rq.prepareInsert(elem.Type()); err != nil {
 		return err
 	}
-
 	// Prepare statement
 	stmt, err := rq.PrepareStmt()
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
-
 	// Insert structure
 	return insertStruct(stmt, elem)
 }
 
+// Write Query based on structure fields tags
 func (rq *Request) prepareInsert(elem reflect.Type) error {
+	// Check that passed structure has fields
 	if elem.NumField() == 0 {
 		return fmt.Errorf("passed structure has no field")
 	}
-
-	columns := "("
-	values := "VALUES ("
-	for i := 0; i < elem.NumField(); i++ {
-		col := elem.Field(i).Tag.Get("db")
-		if len(col) == 0 {
-			return fmt.Errorf("no column name for field #%d", i)
-		}
-		columns += col
-		values += "?"
-		if i < elem.NumField()-1 {
-			columns += ", "
-			values += ", "
+	// Retrieve column names
+	columns := appendColumns([]string{}, elem)
+	// Write query
+	rq.Statement = "INSERT INTO"
+	rq.Set = "("
+	rq.Condition = "VALUES ("
+	for i, col := range columns {
+		rq.Set += col
+		rq.Condition += "?"
+		if i < len(columns)-1 {
+			rq.Set += ", "
+			rq.Condition += ", "
 		}
 	}
-	columns += ")"
-	values += ")"
-	(*rq).Statement = "INSERT INTO"
-	(*rq).Set = columns
-	(*rq).Condition = values
+	rq.Set += ")"
+	rq.Condition += ")"
 	return nil
 }
 
-func insertStruct(stmt *sql.Stmt, elem reflect.Value) error {
-
-	if elem.Kind() != reflect.Struct {
-		return fmt.Errorf("passed value should be a structure, got: %s", elem.Type().String())
-	}
-
-	values := make([]interface{}, elem.NumField())
-	for i := range values {
-		v := elem.Field(i)
-		if v.Kind() != reflect.Ptr {
-			values[i] = v.Interface()
-		} else if v.IsNil() {
-			values[i] = nil
+// Create recursively a slice of all columns to insert from structure fields tags
+func appendColumns(cols []string, elem reflect.Type) []string {
+	// Run through each structure field
+	for i := 0; i < elem.NumField(); i++ {
+		f := elem.Field(i)
+		// If the field is a structure, and marked to be included, recursively
+		// call this function with this field
+		if f.Type.Kind() == reflect.Struct && f.Tag.Get("req") == "include" {
+			cols = appendColumns(cols, f.Type)
 		} else {
-			values[i] = v.Elem().Interface()
+			// Skip if no tag or ignored
+			tag := f.Tag.Get("db")
+			if tag == "" || tag == "-" {
+				continue
+			}
+			// Store tag
+			cols = append(cols, tag)
 		}
 	}
+	return cols
+}
+
+// Exec insert query for one structure
+func insertStruct(stmt *sql.Stmt, st reflect.Value) error {
+	// Check passed value is a structure
+	if st.Kind() != reflect.Struct {
+		return fmt.Errorf("passed value should be a structure, got: %s", st.Type().String())
+	}
+	// Retrieve structure value
+	var values []interface{}
+	values = appendValues(values, st)
+	// Make insert query
 	_, err := stmt.Exec(values...)
 	return err
+}
+
+// Create recursively a slice of all values to insert
+func appendValues(values []interface{}, st reflect.Value) []interface{} {
+	// Run through each structure field
+	for i := 0; i < st.NumField(); i++ {
+		f := st.Field(i)
+		t := st.Type().Field(i)
+		// If the field is a structure, and marked to be included, recursively
+		// call this function with this field
+		if t.Type.Kind() == reflect.Struct && t.Tag.Get("req") == "include" {
+			values = appendValues(values, f)
+		} else {
+			// Skip if no tag or ignored
+			tag := t.Tag.Get("db")
+			if tag == "" || tag == "-" {
+				continue
+			}
+			// Store value
+			if f.Kind() != reflect.Ptr {
+				values = append(values, f.Interface())
+			} else if f.IsNil() {
+				values = append(values, nil)
+			} else {
+				values = append(values, f.Elem().Interface())
+			}
+		}
+	}
+	return values
 }
