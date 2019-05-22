@@ -19,7 +19,7 @@ func (rq Request) InsertStructs(slice interface{}) error {
 	if elem.Len() == 0 {
 		return fmt.Errorf("passed slice is empty")
 	}
-	if err := rq.prepareInsert(elem.Index(0).NumField()); err != nil {
+	if err := rq.prepareInsert(elem.Type().Elem()); err != nil {
 		return err
 	}
 
@@ -49,7 +49,7 @@ func (rq Request) InsertOneStruct(structure interface{}) error {
 	}
 
 	// Create insert query
-	if err := rq.prepareInsert(elem.NumField()); err != nil {
+	if err := rq.prepareInsert(elem.Type()); err != nil {
 		return err
 	}
 
@@ -64,19 +64,25 @@ func (rq Request) InsertOneStruct(structure interface{}) error {
 	return insertStruct(stmt, elem)
 }
 
-func (rq *Request) prepareInsert(nb int) error {
-	if nb == 0 {
+func (rq *Request) prepareInsert(elem reflect.Type) error {
+	if elem.NumField() == 0 {
 		return fmt.Errorf("passed structure has no field")
 	}
+
+	columns := "("
 	values := "VALUES ("
-	for i := 0; i < nb; i++ {
+	for i := 0; i < elem.NumField(); i++ {
+		columns += elem.Field(i).Tag.Get("db")
 		values += "?"
-		if i < nb-1 {
+		if i < elem.NumField()-1 {
+			columns += ", "
 			values += ", "
 		}
 	}
+	columns += ")"
 	values += ")"
 	(*rq).Query.Statement = "INSERT INTO"
+	(*rq).Query.Set = columns
 	(*rq).Query.Condition = values
 	return nil
 }
