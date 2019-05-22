@@ -62,7 +62,8 @@ func scanToSliceOfStruct(rows *sql.Rows, ptr interface{}) error {
 	}
 
 	// Store each row
-	for i := 0; rows.Next(); i++ {
+	var i int
+	for rows.Next() {
 		// Scan row
 		if err := rows.Scan(resultsPtr...); err != nil {
 			return err
@@ -76,6 +77,7 @@ func scanToSliceOfStruct(rows *sql.Rows, ptr interface{}) error {
 		if err := storeIntoStruct(elem.Index(i), results); err != nil {
 			return err
 		}
+		i++
 	}
 	return nil
 }
@@ -147,7 +149,8 @@ func scanToSlice(rows *sql.Rows, ptr interface{}) error {
 	zeroedField := reflect.Zero(elem.Type().Elem())
 
 	// Store each row
-	for i := 0; rows.Next(); i++ {
+	var i int
+	for rows.Next() {
 		// Scan row
 		var result interface{}
 		if err := rows.Scan(&result); err != nil {
@@ -162,6 +165,7 @@ func scanToSlice(rows *sql.Rows, ptr interface{}) error {
 		if err := storeToField(elem.Index(i), result, i); err != nil {
 			return err
 		}
+		i++
 	}
 	return nil
 }
