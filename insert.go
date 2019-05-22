@@ -72,17 +72,12 @@ func (rq *Request) prepareInsert(elem reflect.Type) error {
 	columns := "("
 	values := "VALUES ("
 	for i := 0; i < elem.NumField(); i++ {
-		for i := 0; i < elem.NumField(); i++ {
-			f := elem.Field(i)
-			if f.Type.Kind() == reflect.Struct {
-				for i := 0; i < f.Type.NumField(); i++ {
-					columns += f.Type.Field(i).Tag.Get("db")
-				}
-			} else {
-				columns += elem.Field(i).Tag.Get("db")
-				values += "?"
-			}
+		col := elem.Field(i).Tag.Get("db")
+		if len(col) == 0 {
+			return fmt.Errorf("no column name for field #%d", i)
 		}
+		columns += col
+		values += "?"
 		if i < elem.NumField()-1 {
 			columns += ", "
 			values += ", "
