@@ -3,20 +3,24 @@ package requests
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 )
 
 type (
-	// Request is used to prepare (and optionnaly make) queries via SQLHandler
+	// Handler implements Prepare (from either *sql.DB or *sql.Tx)
+	Handler interface {
+		Prepare(query string) (*sql.Stmt, error)
+	}
+
+	// Request is used to prepare (and optionnaly make) queries via Handler
 	// (which can be *sql.DB or *sql.Tx), during or outside transactions.
 	Request struct {
-		SQLHandler interface{} // might be *sql.Tx or *sql.DB
-		Query      Query       // Query structure
-		Arg        interface{} // for scan functions
+		Handler             // might be *sql.Tx or *sql.DB
+		query               // Query structure
+		Arg     interface{} // for scan functions
 	}
 
 	// Query is a structure used to concatenate queries
-	Query struct {
+	query struct {
 		Query     string // full Query string
 		Statement string // statement part of query
 		Table     string // targetted table of query
@@ -29,31 +33,23 @@ type (
 var ErrNoArg = errors.New("no passed argument, can not scan")
 
 // FromHandler returns an initialized Request with given SQL Handler (Tx or DB)
-func FromHandler(handler interface{}) Request {
-	return Request{SQLHandler: handler}
+func FromHandler(handler Handler) Request {
+	return Request{Handler: handler}
 }
 
 // String checks creates a Query string from its other parameters if its Query
 // parameter is empty
-func (q Query) String() string {
+func (q query) String() string {
 	if q.Query == "" {
 		return q.Statement + " " + q.Table + " " + q.Set + " " + q.Condition
 	}
 	return q.Query
 }
 
-// PrepareStmt prepares rq.Query via rq.SQLHandler. If rq.Query is empty, it
+// PrepareStmt prepares rq.Query via rq.Handler. If rq.Query is empty, it
 // will concatenate the query with rq.Stmt, rq.DBTable, and rq.Condition
 func (rq Request) PrepareStmt() (*sql.Stmt, error) {
-	switch r := rq.SQLHandler.(type) {
-	case *sql.DB:
-		return r.Prepare(rq.Query.String())
-	case *sql.Tx:
-		return r.Prepare(rq.Query.String())
-	default:
-		return nil, fmt.Errorf("wrong type passed to PrepareStatementQuery %T (expected *sql.DB or *sql.Tx)", r)
-	}
-
+	return rq.Handler.Prepare(rq.query.String())
 }
 
 // GetRows makes a prepared query and returns the resulted rows. This function

@@ -72,8 +72,17 @@ func (rq *Request) prepareInsert(elem reflect.Type) error {
 	columns := "("
 	values := "VALUES ("
 	for i := 0; i < elem.NumField(); i++ {
-		columns += elem.Field(i).Tag.Get("db")
-		values += "?"
+		for i := 0; i < elem.NumField(); i++ {
+			f := elem.Field(i)
+			if f.Type.Kind() == reflect.Struct {
+				for i := 0; i < f.Type.NumField(); i++ {
+					columns += f.Type.Field(i).Tag.Get("db")
+				}
+			} else {
+				columns += elem.Field(i).Tag.Get("db")
+				values += "?"
+			}
+		}
 		if i < elem.NumField()-1 {
 			columns += ", "
 			values += ", "
@@ -81,9 +90,9 @@ func (rq *Request) prepareInsert(elem reflect.Type) error {
 	}
 	columns += ")"
 	values += ")"
-	(*rq).Query.Statement = "INSERT INTO"
-	(*rq).Query.Set = columns
-	(*rq).Query.Condition = values
+	(*rq).Statement = "INSERT INTO"
+	(*rq).Set = columns
+	(*rq).Condition = values
 	return nil
 }
 
