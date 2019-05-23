@@ -32,14 +32,14 @@ type (
 // ErrNoArg is for functions that should scan rows but have no passed argument
 var ErrNoArg = errors.New("no passed argument, can not scan")
 
-// FromHandler returns an initialized Request with given SQL Handler (Tx or DB)
+// FromHandler returns an initialized Request with given Handler (*Tx or *DB)
 func FromHandler(handler Handler) Request {
 	return Request{Handler: handler}
 }
 
-// String checks creates a Query string from its other parameters if its Query
+// string checks creates a Query string from its other parameters if its Query
 // parameter is empty
-func (q query) String() string {
+func (q query) string() string {
 	if q.Query == "" {
 		return q.Statement + " " + q.Table + " " + q.Set + " " + q.Condition
 	}
@@ -47,13 +47,12 @@ func (q query) String() string {
 }
 
 // PrepareStmt prepares rq.Query via rq.Handler. If rq.Query is empty, it
-// will concatenate the query with rq.Stmt, rq.DBTable, and rq.Condition
+// will concatenate the query with its subparts (Statement, Table, ...)
 func (rq Request) PrepareStmt() (*sql.Stmt, error) {
-	return rq.Handler.Prepare(rq.query.String())
+	return rq.Handler.Prepare(rq.query.string())
 }
 
-// GetRows makes a prepared query and returns the resulted rows. This function
-// can be used during and outside of transactions.
+// GetRows prepares and makes a query, and returns the resulted rows
 func (rq Request) GetRows(args ...interface{}) (*sql.Rows, error) {
 
 	// Prepare statement
@@ -67,48 +66,7 @@ func (rq Request) GetRows(args ...interface{}) (*sql.Rows, error) {
 	return stmt.Query(args...)
 }
 
-// GetIntoStructs retrieves rows from given query, then calls the passed
-// ScanFunc for each row to store results directly into the Receiver (usually
-// pointing to a slice of structures)
-func (rq Request) GetIntoStructs(args ...interface{}) error {
-
-	// Retrieve rows
-	rows, err := rq.GetRows(args...)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
-	if rq.Arg == nil {
-		return ErrNoArg
-	}
-
-	// Scan rows into receiver
-	return scanToSliceOfStruct(rows, rq.Arg)
-}
-
-// GetIntoSlice retrieves rows from given query, then calls the passed
-// ScanFunc for each row to store results directly into the Receiver (usually
-// pointing to a slice of structures)
-func (rq Request) GetIntoSlice(args ...interface{}) error {
-
-	// Retrieve rows
-	rows, err := rq.GetRows(args...)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
-	if rq.Arg == nil {
-		return ErrNoArg
-	}
-
-	// Scan rows into receiver
-	return scanToSlice(rows, rq.Arg)
-}
-
-// GetOneRow makes a prepared query and returns the resulted row. This function
-// can be used during and outside of transactions.
+// GetOneRow prepares and makes a query, and returns the resulted row
 func (rq Request) GetOneRow(args ...interface{}) (*sql.Row, error) {
 
 	// Prepare statement
@@ -122,65 +80,7 @@ func (rq Request) GetOneRow(args ...interface{}) (*sql.Row, error) {
 	return stmt.QueryRow(args...), nil
 }
 
-// GetOneField makes a prepared query and returns the resulted row. This function
-// can be used during and outside of transactions.
-func (rq Request) GetOneField(args ...interface{}) error {
-
-	// Retrieve row
-	row, err := rq.GetOneRow(args...)
-	if err != nil {
-		return err
-	}
-
-	if rq.Arg == nil {
-		return ErrNoArg
-	}
-
-	// Scan to ptr
-	return scanToOnePtr(row, rq.Arg)
-}
-
-// GetFields retrieves the first row from given query, then calls the
-// passed ScanFunc to store results directly into the Receiver (usually pointing
-// to a slice)
-func (rq Request) GetFields(args ...interface{}) error {
-
-	// Retrieve row
-	row, err := rq.GetOneRow(args...)
-	if err != nil {
-		return err
-	}
-
-	if rq.Arg == nil {
-		return ErrNoArg
-	}
-
-	// Scan row into receiver
-	return scanToSliceOfPtr(row, rq.Arg)
-}
-
-// GetIntoOneStruct retrieves the first row from given query, then calls the
-// passed ScanFunc to store results directly into the Receiver (usually pointing
-// to a structure)
-func (rq Request) GetIntoOneStruct(args ...interface{}) error {
-
-	// Retrieve row
-	row, err := rq.GetOneRow(args...)
-	if err != nil {
-		return err
-	}
-
-	if rq.Arg == nil {
-		return ErrNoArg
-	}
-
-	// Scan row into receiver
-	return scanToOneStruct(row, rq.Arg)
-}
-
-// ExecQuery prepares a query which does not return a row, then calls the given
-// ExecFunc with the passed Arg. This function can be used during and outside
-// of transactions.
+// ExecQuery prepares and makes a query which does not need to return any row
 func (rq Request) ExecQuery(args ...interface{}) (sql.Result, error) {
 
 	// Prepare statement

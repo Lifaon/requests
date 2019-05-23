@@ -6,7 +6,8 @@ import (
 	"reflect"
 )
 
-// InsertStructs inserts a slice of structures into the given table
+// InsertStructs inserts a slice of structures into the given table. Can insert
+// sub structures, if they have the tag `req:"include"`
 func (rq Request) InsertStructs(slice interface{}) error {
 
 	// Check that passed value is a slice
@@ -42,7 +43,8 @@ func (rq Request) InsertStructs(slice interface{}) error {
 	return nil
 }
 
-// InsertOneStruct inserts one structure into the given table
+// InsertOneStruct inserts one structure into the given table. Can insert sub
+// structures, if they have the tag `req:"include"`
 func (rq Request) InsertOneStruct(structure interface{}) error {
 	// Check that passed value is a structure
 	elem := reflect.ValueOf(structure)
@@ -88,7 +90,8 @@ func (rq *Request) prepareInsert(elem reflect.Type) error {
 	return nil
 }
 
-// Create recursively a slice of all columns to insert from structure fields tags
+// Create recursively a slice of all columns to insert from structure fields
+// tags (to include sub structs)
 func appendColumns(cols []string, elem reflect.Type) []string {
 	// Run through each structure field
 	for i := 0; i < elem.NumField(); i++ {
@@ -110,7 +113,7 @@ func appendColumns(cols []string, elem reflect.Type) []string {
 	return cols
 }
 
-// Exec insert query for one structure
+// Execute insert query for one structure
 func insertStruct(stmt *sql.Stmt, st reflect.Value) error {
 	// Check passed value is a structure
 	if st.Kind() != reflect.Struct {
@@ -124,7 +127,7 @@ func insertStruct(stmt *sql.Stmt, st reflect.Value) error {
 	return err
 }
 
-// Create recursively a slice of all values to insert
+// Create recursively a slice of all values to insert (to include sub structs)
 func appendValues(values []interface{}, st reflect.Value) []interface{} {
 	// Run through each structure field
 	for i := 0; i < st.NumField(); i++ {

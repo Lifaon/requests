@@ -93,7 +93,7 @@ func storeIntoStruct(st reflect.Value, results []interface{}) error {
 	return nil
 }
 
-// Scan and store results into pointed result
+// Scan and store results into pointed value
 func scanToOnePtr(row *sql.Row, ptr interface{}) error {
 	// Scan into interface
 	var result interface{}
@@ -101,11 +101,11 @@ func scanToOnePtr(row *sql.Row, ptr interface{}) error {
 	if err != nil {
 		return err
 	}
-	// Store scanned result to pointed result
+	// Store scanned result to pointed value
 	return storeIntoPtr(reflect.ValueOf(ptr), result, 1)
 }
 
-// Scan and store results into slice of pointed results
+// Scan and store results into slice of pointed values
 func scanToSliceOfPtr(row *sql.Row, slice interface{}) error {
 	// Check that passed value is a slice
 	elem := reflect.ValueOf(slice)
@@ -181,6 +181,7 @@ func storeIntoPtr(ptr reflect.Value, result interface{}, index int) error {
 	return storeToField(elem, result, index)
 }
 
+// Store result to passed value
 func storeToField(v reflect.Value, result interface{}, i int) error {
 	// Check that passed element is settable
 	if !v.CanSet() {
