@@ -41,7 +41,14 @@ func FromHandler(handler Handler) Request {
 // empty, it is returned, else a concatenation of other fields is returned
 func (q QueryStruct) String() string {
 	if q.Query == "" {
-		return q.Statement + " " + q.Table + " " + q.Set + " " + q.Condition
+		s := q.Statement + " " + q.Table
+		if q.Set != "" {
+			s += " " + q.Set
+		}
+		if q.Condition != "" {
+			s += " " + q.Condition
+		}
+		return s
 	}
 	return q.Query
 }
