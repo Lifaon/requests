@@ -14,13 +14,13 @@ type (
 	// Request is used to prepare (and optionnaly make) queries via Handler
 	// (which can be *sql.DB or *sql.Tx), during or outside transactions.
 	Request struct {
-		Handler             // might be *sql.Tx or *sql.DB
-		query               // Query structure
-		Arg     interface{} // for scan functions
+		Handler                 // might be *sql.Tx or *sql.DB
+		QueryStruct             // Query structure
+		Arg         interface{} // for scan functions
 	}
 
-	// Query is a structure used to concatenate queries
-	query struct {
+	// QueryStruct is a structure used to concatenate queries
+	QueryStruct struct {
 		Query     string // full Query string
 		Statement string // statement part of query
 		Table     string // targeted table of query
@@ -37,9 +37,9 @@ func FromHandler(handler Handler) Request {
 	return Request{Handler: handler}
 }
 
-// string checks creates a Query string from its other parameters if its Query
+// String checks creates a Query string from its other parameters if its Query
 // parameter is empty
-func (q query) string() string {
+func (q QueryStruct) String() string {
 	if q.Query == "" {
 		return q.Statement + " " + q.Table + " " + q.Set + " " + q.Condition
 	}
@@ -49,7 +49,7 @@ func (q query) string() string {
 // PrepareStmt prepares rq.Query via rq.Handler. If rq.Query is empty, it
 // will concatenate the query with its subparts (Statement, Table, ...)
 func (rq Request) PrepareStmt() (*sql.Stmt, error) {
-	return rq.Handler.Prepare(rq.query.string())
+	return rq.Handler.Prepare(rq.QueryStruct.String())
 }
 
 // GetRows prepares and makes a query, and returns the resulted rows
