@@ -37,8 +37,8 @@ func FromHandler(handler Handler) Request {
 	return Request{Handler: handler}
 }
 
-// String checks creates a Query string from its other parameters if its Query
-// parameter is empty
+// String returns a Query string from QueryStruct. If the Query field is not
+// empty, it is returned, else a concatenation of other fields is returned
 func (q QueryStruct) String() string {
 	if q.Query == "" {
 		return q.Statement + " " + q.Table + " " + q.Set + " " + q.Condition
