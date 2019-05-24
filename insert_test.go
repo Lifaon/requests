@@ -2,14 +2,15 @@ package requests_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
 
 type (
 	BasicFields struct {
-		ID        string `db:"id"`
-		CreatedAt string `db:"createdAt"`
+		ID        string    `db:"id"`
+		CreatedAt time.Time `db:"createdAt"`
 	}
 
 	TestStruct struct {
@@ -36,7 +37,7 @@ var (
 	oneStruct = TestStruct{
 		BasicFields: BasicFields{
 			ID:        param_a,
-			CreatedAt: param_b,
+			CreatedAt: time_now,
 		},
 		Ptr:    ptr,
 		NilPtr: nil,
@@ -60,11 +61,11 @@ func TestInsertStructs(t *testing.T) {
 
 	rq.Table = "user"
 	mock.ExpectPrepare(insert_query_regex).WillBeClosed()
-	mock.ExpectExec(insert_query_regex).WithArgs(param_a, param_b, ptr, nil).
+	mock.ExpectExec(insert_query_regex).WithArgs(param_a, time_now, ptr, nil).
 		WillReturnResult(result_1)
-	mock.ExpectExec(insert_query_regex).WithArgs(param_a, param_b, ptr, nil).
+	mock.ExpectExec(insert_query_regex).WithArgs(param_a, time_now, ptr, nil).
 		WillReturnResult(result_1)
-	mock.ExpectExec(insert_query_regex).WithArgs(param_a, param_b, ptr, nil).
+	mock.ExpectExec(insert_query_regex).WithArgs(param_a, time_now, ptr, nil).
 		WillReturnResult(result_1)
 
 	err := rq.InsertStructs(structs)
@@ -127,7 +128,7 @@ func TestInsertOneStruct(t *testing.T) {
 
 	rq.Table = "user"
 	mock.ExpectPrepare(insert_query_regex).WillBeClosed().
-		ExpectExec().WithArgs(param_a, param_b, ptr, nil).WillReturnResult(result_1)
+		ExpectExec().WithArgs(param_a, time_now, ptr, nil).WillReturnResult(result_1)
 
 	err := rq.InsertOneStruct(oneStruct)
 	assert.NoError(t, err, unexpected_error)

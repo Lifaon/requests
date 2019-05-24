@@ -41,11 +41,14 @@ var (
 	sql_error = errors.New("this would produce an error")
 
 	// SQL Rows
-	columns   = []string{col_1, col_2}
-	time_now  = time.Now()
-	mock_Rows = sqlmock.NewRows(columns).
-			AddRow(param_a, time_now).AddRow(param_b, time_now)
+	columns  = []string{col_1, col_2}
+	time_now = time.Now()
 )
+
+func getSelectRows() *sqlmock.Rows {
+	return sqlmock.NewRows(columns).
+		AddRow(param_a, time_now).AddRow(param_b, time_now)
+}
 
 // Init db, mock & rq structures
 func initRequest(t *testing.T) (requests.Request, sqlmock.Sqlmock, *sql.DB) {
@@ -103,7 +106,7 @@ func TestGetRows(t *testing.T) {
 
 	rq.Query = select_query
 	mock.ExpectPrepare(rq.Query).WillBeClosed().
-		ExpectQuery().WillReturnRows(mock_Rows).RowsWillBeClosed()
+		ExpectQuery().WillReturnRows(getSelectRows()).RowsWillBeClosed()
 
 	rows, err := rq.GetRows()
 	assert.NoError(t, err, unexpected_error)
@@ -136,7 +139,7 @@ func TestGetOneRow(t *testing.T) {
 
 	rq.Query = select_query
 	mock.ExpectPrepare(rq.Query).WillBeClosed().
-		ExpectQuery().WillReturnRows(mock_Rows)
+		ExpectQuery().WillReturnRows(getSelectRows())
 
 	row, err := rq.GetOneRow()
 	assert.NoError(t, err, unexpected_error)
