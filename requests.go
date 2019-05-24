@@ -23,7 +23,7 @@ type (
 	query struct {
 		Query     string // full Query string
 		Statement string // statement part of query
-		Table     string // targetted table of query
+		Table     string // targeted table of query
 		Set       string // optionnal set parameter of query
 		Condition string // optionnal condition of query
 	}
