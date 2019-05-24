@@ -35,7 +35,7 @@ const (
 var (
 	// SQL results
 	result_0 = sqlmock.NewResult(0, 0)
-	result_1 = sqlmock.NewResult(4, 7)
+	result_1 = sqlmock.NewResult(1, 1)
 
 	// Errors
 	sql_error = errors.New("this would produce an error")

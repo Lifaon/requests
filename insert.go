@@ -67,12 +67,12 @@ func (rq Request) InsertOneStruct(structure interface{}) error {
 
 // Write Query based on structure fields tags
 func (rq *Request) prepareInsert(elem reflect.Type) error {
-	// Check that passed structure has fields
-	if elem.NumField() == 0 {
-		return fmt.Errorf("passed structure has no field")
-	}
 	// Retrieve column names
 	columns := appendColumns([]string{}, elem)
+	// Check that columns is not empty
+	if len(columns) == 0 {
+		return fmt.Errorf("passed structure has no field, or all fields are ignored")
+	}
 	// Write query
 	rq.Statement = "INSERT INTO"
 	rq.Set = "("
@@ -115,10 +115,6 @@ func appendColumns(cols []string, elem reflect.Type) []string {
 
 // Execute insert query for one structure
 func insertStruct(stmt *sql.Stmt, st reflect.Value) error {
-	// Check passed value is a structure
-	if st.Kind() != reflect.Struct {
-		return fmt.Errorf("passed value should be a structure, got: %s", st.Type().String())
-	}
 	// Retrieve structure value
 	var values []interface{}
 	values = appendValues(values, st)
