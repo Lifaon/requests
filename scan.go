@@ -2,7 +2,6 @@ package requests
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"reflect"
 )
@@ -50,12 +49,9 @@ func scanIntoStructs(rows *sql.Rows, ptr interface{}) error {
 			return err
 		}
 		// Append slice
-		if !elem.CanSet() {
-			return errors.New("structure from pointed slice is not settable")
-		}
 		elem.Set(reflect.Append(elem, zeroedSt))
 		// Store results
-		if err := scanIntoStruct(elem.Index(i), results); err != nil {
+		if err := storeIntoStruct(elem.Index(i), results); err != nil {
 			return err
 		}
 		i++
@@ -81,11 +77,11 @@ func scanToOneStruct(row *sql.Row, ptr interface{}) error {
 	if err != nil {
 		return err
 	}
-	return scanIntoStruct(elem, results)
+	return storeIntoStruct(elem, results)
 }
 
 // Store scanned results to one structure
-func scanIntoStruct(st reflect.Value, results []interface{}) error {
+func storeIntoStruct(st reflect.Value, results []interface{}) error {
 	for i, result := range results {
 		f := st.Field(i)
 		if err := storeToField(f, result, i+1); err != nil {
@@ -104,7 +100,7 @@ func scanIntoOnePtr(row *sql.Row, ptr interface{}) error {
 		return err
 	}
 	// Store scanned result to pointed value
-	return scanIntoPtr(reflect.ValueOf(ptr), result, 1)
+	return storeIntoPtr(reflect.ValueOf(ptr), result, 1)
 }
 
 // Scan and store results into slice of pointed values
@@ -123,12 +119,8 @@ func scanIntoPtrs(row *sql.Row, slice interface{}) error {
 
 	// Store scanned results into pointed values
 	for i, result := range results {
-		f := elem.Index(i)
-		if f.Kind() != reflect.Interface {
-			return fmt.Errorf("passed slice should store pointers in interface{} form, got: %s", f.Type().String())
-		}
-		pt := f.Elem()
-		if err := scanIntoPtr(pt, result, i+1); err != nil {
+		pt := elem.Index(i).Elem()
+		if err := storeIntoPtr(pt, result, i+1); err != nil {
 			return err
 		}
 	}
@@ -136,7 +128,7 @@ func scanIntoPtrs(row *sql.Row, slice interface{}) error {
 }
 
 // Store scanned result to pointed value
-func scanIntoPtr(ptr reflect.Value, result interface{}, index int) error {
+func storeIntoPtr(ptr reflect.Value, result interface{}, index int) error {
 	// Check that passed value is a pointer
 	if ptr.Kind() != reflect.Ptr {
 		return fmt.Errorf("passed value should be a pointer, got: %s", ptr.Type().String())
@@ -170,9 +162,6 @@ func scanIntoSlice(rows *sql.Rows, ptr interface{}) error {
 			return err
 		}
 		// Append slice
-		if !elem.CanSet() {
-			return errors.New("value from pointed slice is not settable")
-		}
 		elem.Set(reflect.Append(elem, zeroedField))
 		// Store results
 		if err := storeToField(elem.Index(i), result, i); err != nil {

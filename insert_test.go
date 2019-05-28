@@ -9,7 +9,7 @@ import (
 
 type (
 	BasicFields struct {
-		ID        string    `db:"id"`
+		ID        int64     `db:"id"`
 		CreatedAt time.Time `db:"createdAt"`
 	}
 
@@ -25,10 +25,6 @@ type (
 
 	EmptyStruct struct {
 	}
-)
-
-const (
-	insert_query_regex = "INSERT INTO user \\(id, createdAt, ptr, nilptr\\) VALUES \\(\\?, \\?, \\?, \\?\\)"
 )
 
 var (
@@ -59,17 +55,42 @@ func TestInsertStructs(t *testing.T) {
 	rq, mock, db := initRequest(t)
 	defer db.Close()
 
-	rq.Table = "user"
-	mock.ExpectPrepare(insert_query_regex).WillBeClosed()
-	mock.ExpectExec(insert_query_regex).WithArgs(param_a, time_now, ptr, nil).
+	mock.ExpectPrepare(insert_query).WillBeClosed()
+	mock.ExpectExec(insert_query).WithArgs(param_a, time_now, ptr, nil).
 		WillReturnResult(result_1)
-	mock.ExpectExec(insert_query_regex).WithArgs(param_a, time_now, ptr, nil).
+	mock.ExpectExec(insert_query).WithArgs(param_a, time_now, ptr, nil).
 		WillReturnResult(result_1)
-	mock.ExpectExec(insert_query_regex).WithArgs(param_a, time_now, ptr, nil).
+	mock.ExpectExec(insert_query).WithArgs(param_a, time_now, ptr, nil).
 		WillReturnResult(result_1)
 
 	err := rq.InsertStructs(structs)
-	assert.NoError(t, err, unexpected_error)
+	assert.NoError(t, err)
+	checkResults(t, mock)
+}
+
+// Test InsertStructs method, but prepare fails
+func TestInsertStructsPrepareFail(t *testing.T) {
+	rq, mock, db := initRequest(t)
+	defer db.Close()
+
+	mock.ExpectPrepare(insert_query).WillReturnError(sql_error)
+
+	err := rq.InsertStructs(structs)
+	assert.Error(t, err)
+	checkResults(t, mock)
+}
+
+// Test InsertStructs method, but exec fails
+func TestInsertStructsExecFail(t *testing.T) {
+	rq, mock, db := initRequest(t)
+	defer db.Close()
+
+	mock.ExpectPrepare(insert_query).WillBeClosed().
+		ExpectExec().WithArgs(param_a, time_now, ptr, nil).
+		WillReturnError(sql_error)
+
+	err := rq.InsertStructs(structs)
+	assert.Error(t, err)
 	checkResults(t, mock)
 }
 
@@ -78,10 +99,8 @@ func TestInsertStructsNotASlice(t *testing.T) {
 	rq, mock, db := initRequest(t)
 	defer db.Close()
 
-	rq.Table = "user"
-
 	err := rq.InsertStructs(oneStruct)
-	assert.Error(t, err, expected_error)
+	assert.Error(t, err)
 	checkResults(t, mock)
 }
 
@@ -90,10 +109,8 @@ func TestInsertStructsEmptySlice(t *testing.T) {
 	rq, mock, db := initRequest(t)
 	defer db.Close()
 
-	rq.Table = "user"
-
 	err := rq.InsertStructs([]TestStruct{})
-	assert.Error(t, err, expected_error)
+	assert.Error(t, err)
 	checkResults(t, mock)
 }
 
@@ -102,10 +119,8 @@ func TestInsertStructsNotASliceOfStructures(t *testing.T) {
 	rq, mock, db := initRequest(t)
 	defer db.Close()
 
-	rq.Table = "user"
-
 	err := rq.InsertStructs(intSlice)
-	assert.Error(t, err, expected_error)
+	assert.Error(t, err)
 	checkResults(t, mock)
 }
 
@@ -114,10 +129,8 @@ func TestInsertStructsEmptyStructures(t *testing.T) {
 	rq, mock, db := initRequest(t)
 	defer db.Close()
 
-	rq.Table = "user"
-
 	err := rq.InsertStructs(emptyStructs)
-	assert.Error(t, err, expected_error)
+	assert.Error(t, err)
 	checkResults(t, mock)
 }
 
@@ -126,12 +139,23 @@ func TestInsertOneStruct(t *testing.T) {
 	rq, mock, db := initRequest(t)
 	defer db.Close()
 
-	rq.Table = "user"
-	mock.ExpectPrepare(insert_query_regex).WillBeClosed().
+	mock.ExpectPrepare(insert_query).WillBeClosed().
 		ExpectExec().WithArgs(param_a, time_now, ptr, nil).WillReturnResult(result_1)
 
 	err := rq.InsertOneStruct(oneStruct)
-	assert.NoError(t, err, unexpected_error)
+	assert.NoError(t, err)
+	checkResults(t, mock)
+}
+
+// Test InsertOneStruct method, but prepare fails
+func TestInsertOneStructPrepareFail(t *testing.T) {
+	rq, mock, db := initRequest(t)
+	defer db.Close()
+
+	mock.ExpectPrepare(insert_query).WillReturnError(sql_error)
+
+	err := rq.InsertOneStruct(oneStruct)
+	assert.Error(t, err)
 	checkResults(t, mock)
 }
 
@@ -140,10 +164,8 @@ func TestInsertOneStructNotAStructure(t *testing.T) {
 	rq, mock, db := initRequest(t)
 	defer db.Close()
 
-	rq.Table = "user"
-
 	err := rq.InsertOneStruct(structs)
-	assert.Error(t, err, expected_error)
+	assert.Error(t, err)
 	checkResults(t, mock)
 }
 
@@ -152,9 +174,7 @@ func TestInsertOneStructEmptyStructure(t *testing.T) {
 	rq, mock, db := initRequest(t)
 	defer db.Close()
 
-	rq.Table = "user"
-
 	err := rq.InsertOneStruct(oneEmptyStruct)
-	assert.Error(t, err, expected_error)
+	assert.Error(t, err)
 	checkResults(t, mock)
 }

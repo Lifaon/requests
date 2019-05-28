@@ -13,23 +13,17 @@ import (
 
 const (
 	// Parameters
-	param_a = "first_param"
-	param_b = "second_param"
+	param_a = int64(42)
+	param_b = float64(3.14)
 
 	// Columns
 	col_1 = "id"
 	col_2 = "createdAt"
 
 	// Queries
-	select_query = "SELECT id, createdAt FROM user"
-	update_query = "UPDATE user SET id = '12345' WHERE name = 'test'"
-
-	// Error messages
-	expected_error   = "expected an error"
-	unexpected_error = "did not expect an error"
-	nil_error        = "expected result to be nil"
-	not_nil_error    = "did not expect result to be nil"
-	equal_error      = "result is different from expected"
+	select_query = "SELECT"
+	insert_query = "INSERT"
+	update_query = "UPDATE"
 )
 
 var (
@@ -63,24 +57,25 @@ func initRequest(t *testing.T) (requests.Request, sqlmock.Sqlmock, *sql.DB) {
 // Check that expectations were met
 func checkResults(t *testing.T, mock sqlmock.Sqlmock) {
 	err := mock.ExpectationsWereMet()
-	assert.NoErrorf(t, err, "Expectiations were not met")
+	assert.NoError(t, err)
 }
 
 // Test QueryStruct's String method
 func TestQueryStructString(t *testing.T) {
 
+	const query = "UPDATE user SET id = '12345' WHERE name = 'test'"
+	var rq1, rq2 requests.Request
+
 	// From sub parameters
-	var rq requests.Request
-	rq.Statement = "UPDATE"
-	rq.Table = "user"
-	rq.Set = "SET id = '12345'"
-	rq.Condition = "WHERE name = 'test'"
-	assert.Equal(t, update_query, rq.QueryStruct.String())
+	rq1.Statement = "UPDATE"
+	rq1.Table = "user"
+	rq1.Set = "SET id = '12345'"
+	rq1.Condition = "WHERE name = 'test'"
+	assert.Equal(t, query, rq1.QueryStruct.String())
 
 	// From whole query
-	var rq2 requests.Request
-	rq2.Query = update_query
-	assert.Equal(t, update_query, rq2.QueryStruct.String())
+	rq2.Query = query
+	assert.Equal(t, query, rq2.QueryStruct.String())
 }
 
 // Test PrepareStmt method
@@ -92,8 +87,8 @@ func TestPrepareStmt(t *testing.T) {
 	mock.ExpectPrepare(rq.Query).WillBeClosed()
 
 	stmt, err := rq.PrepareStmt()
-	assert.NoError(t, err, unexpected_error)
-	if assert.NotNil(t, stmt, not_nil_error) {
+	assert.NoError(t, err)
+	if assert.NotNil(t, stmt) {
 		stmt.Close()
 	}
 	checkResults(t, mock)
@@ -109,8 +104,8 @@ func TestGetRows(t *testing.T) {
 		ExpectQuery().WillReturnRows(getSelectRows()).RowsWillBeClosed()
 
 	rows, err := rq.GetRows()
-	assert.NoError(t, err, unexpected_error)
-	if assert.NotNil(t, rows, not_nil_error) {
+	assert.NoError(t, err)
+	if assert.NotNil(t, rows) {
 		rows.Close()
 	}
 	checkResults(t, mock)
@@ -125,8 +120,8 @@ func TestGetRowsWrongQuery(t *testing.T) {
 	mock.ExpectPrepare(rq.Query).WillReturnError(sql_error)
 
 	rows, err := rq.GetRows()
-	assert.Error(t, err, expected_error)
-	if !assert.Nil(t, rows, nil_error) {
+	assert.Error(t, err)
+	if !assert.Nil(t, rows) {
 		rows.Close()
 	}
 	checkResults(t, mock)
@@ -142,11 +137,11 @@ func TestGetOneRow(t *testing.T) {
 		ExpectQuery().WillReturnRows(getSelectRows())
 
 	row, err := rq.GetOneRow()
-	assert.NoError(t, err, unexpected_error)
-	if assert.NotNil(t, row, not_nil_error) {
+	assert.NoError(t, err)
+	if assert.NotNil(t, row) {
 		var a, b interface{}
 		err := row.Scan(&a, &b)
-		assert.NoError(t, err, unexpected_error)
+		assert.NoError(t, err)
 	}
 	checkResults(t, mock)
 }
@@ -160,11 +155,11 @@ func TestGetOneRowWrongQuery(t *testing.T) {
 	mock.ExpectPrepare(rq.Query).WillReturnError(sql_error)
 
 	row, err := rq.GetOneRow()
-	assert.Error(t, err, expected_error)
-	if !assert.Nil(t, row, not_nil_error) {
+	assert.Error(t, err)
+	if !assert.Nil(t, row) {
 		var a, b interface{}
 		err := row.Scan(&a, &b)
-		assert.Error(t, err, expected_error)
+		assert.Error(t, err)
 	}
 	checkResults(t, mock)
 }
@@ -179,11 +174,12 @@ func TestExecQuery(t *testing.T) {
 		ExpectExec().WillReturnResult(result_1)
 
 	res, err := rq.ExecQuery()
-	assert.NoError(t, err, unexpected_error)
-	res1, _ := res.LastInsertId()
-	res2, _ := res.RowsAffected()
-	ret := sqlmock.NewResult(res1, res2)
-	assert.Equal(t, result_1, ret, equal_error)
+	if assert.NoError(t, err) {
+		res1, _ := res.LastInsertId()
+		res2, _ := res.RowsAffected()
+		ret := sqlmock.NewResult(res1, res2)
+		assert.Equal(t, result_1, ret)
+	}
 	checkResults(t, mock)
 }
 
@@ -196,6 +192,6 @@ func TestExecQueryWrongQuery(t *testing.T) {
 	mock.ExpectPrepare(rq.Query).WillReturnError(sql_error)
 
 	_, err := rq.ExecQuery(param_a, param_b)
-	assert.Error(t, err, expected_error)
+	assert.Error(t, err)
 	checkResults(t, mock)
 }
