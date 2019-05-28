@@ -1,6 +1,8 @@
+[![Build Status](https://travis-ci.org/mlantonn/requests.svg?branch=master)](https://travis-ci.org/mlantonn/requests) [![codecov](https://codecov.io/gh/mlantonn/requests/branch/master/graph/badge.svg)](https://codecov.io/gh/mlantonn/requests) [![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/mlantonn/requests) [![Go Report Card](https://goreportcard.com/badge/github.com/mlantonn/requests)](https://goreportcard.com/report/github.com/mlantonn/requests)
+
 # Requests
 
-A structure and its methods, to simplify MySQL requests.
+A structure and its methods, to simplify SQL requests.
 
 ## Installation
 
@@ -69,37 +71,51 @@ type (
 ### Methods
 
 ```Golang
-// Prepares statements. Is always called in other methods
+// PrepareStmt prepares rq.Query via rq.Handler. If rq.Query is empty, it
+// will concatenate the query with its subparts (Statement, Table, ...)
 func (rq Request) PrepareStmt() (*sql.Stmt, error) {}
 
-// Inserts a slice of structures into the given table
+// InsertStructs inserts a slice of structures into the given table. Can insert
+// sub structures, if they have the tag `req:"include"`
 func (rq Request) InsertStructs(slice interface{}) error {}
 
-// Inserts a single structure into the given table
+// InsertOneStruct inserts one structure into the given table. Can insert sub
+// structures, if they have the tag `req:"include"`
 func (rq Request) InsertOneStruct(structure interface{}) error {}
 
-// Prepare and make query, return rows
+// GetRows prepares and makes a query, and returns the resulted rows
 func (rq Request) GetRows(args ...interface{}) (*sql.Rows, error) {}
 
-// Prepare and make query, scan rows into slice of structures
-func (rq Request) GetIntoStructs(args ...interface{}) error {}
-
-// Prepare and make query, scan rows into basic slice
-func (rq Request) GetIntoSlice(args ...interface{}) error {}
-
-// Prepare and make query, return row
+// GetOneRow prepares and makes a query, and returns the resulted row
 func (rq Request) GetOneRow(args ...interface{}) (*sql.Row, error) {}
 
-// Prepare and make query, scan row into interface{}
+// GetIntoStructs prepares and makes a query, retrieves Rows, and scan them into
+// a pointer to a slice of structures. Should be used for queries selecting
+// multiple fields from multiple rows
+func (rq Request) GetIntoStructs(args ...interface{}) error {}
+
+// GetIntoSlice prepares and makes a query, retrieves Rows, and scan them into
+// a pointer to a slice of any type. Should be used for queries selecting one
+// field from multiple rows
+func (rq Request) GetIntoSlice(args ...interface{}) error {}
+
+// GetOneField prepares and makes a query, retrieves a Row, and scan it into
+// the passed pointer. Should be used for queries selecting one field from one
+// row
 func (rq Request) GetOneField(args ...interface{}) error {}
 
-// Prepare and make query, scan rows into slice of ptr
+// GetFields prepares and makes a query, retrieves a Row, and scan it into
+// a slice of any pointers. Should be used for queries selecting multiple fields
+// from a single row
 func (rq Request) GetFields(args ...interface{}) error {}
 
-// Prepare and make query, scan rows into structure
+// GetIntoOneStruct prepares and makes a query, retrieves a Row, and scan it
+// into a pointer to one struct. Should be used for queries selecting multiple
+// fields from a single row (if this query is unique, consider using GetFields
+// instead)
 func (rq Request) GetIntoOneStruct(args ...interface{}) error {}
 
-// Prepare and make query which doesn't retrieve rows
+// ExecQuery prepares and makes a query which does not need to return any row
 func (rq Request) ExecQuery(args ...interface{}) (sql.Result, error) {}
 
 ```

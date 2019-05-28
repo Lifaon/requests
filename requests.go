@@ -54,7 +54,8 @@ func (q QueryStruct) String() string {
 }
 
 // PrepareStmt prepares rq.Query via rq.Handler. If rq.Query is empty, it
-// will concatenate the query with its subparts (Statement, Table, ...)
+// will concatenate the query with its subparts (Statement, Table, ...).
+// Always called in other methods
 func (rq Request) PrepareStmt() (*sql.Stmt, error) {
 	return rq.Handler.Prepare(rq.QueryStruct.String())
 }
