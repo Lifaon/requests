@@ -110,7 +110,7 @@ func scanToSliceOfPtr(row *sql.Row, slice interface{}) error {
 	// Check that passed value is a slice
 	elem := reflect.ValueOf(slice)
 	if elem.Kind() != reflect.Slice {
-		return fmt.Errorf("passed value must be a slice of pointers, got: %s", elem.Type().String())
+		return fmt.Errorf("passed value must be a slice of interface{} (as pointers), got: %s", elem.Type().String())
 	}
 	// Scan into slice of interface
 	results := make([]interface{}, elem.Len())
@@ -124,7 +124,11 @@ func scanToSliceOfPtr(row *sql.Row, slice interface{}) error {
 	}
 	// Store scanned results into pointed values
 	for i, result := range results {
-		pt := elem.Index(i)
+		f := elem.Index(i)
+		if f.Kind() != reflect.Interface {
+			return fmt.Errorf("passed slice should store interface{}, got: %s", f.Type().String())
+		}
+		pt := f.Elem()
 		if err := storeIntoPtr(pt, result, i+1); err != nil {
 			return err
 		}
@@ -174,7 +178,7 @@ func scanToSlice(rows *sql.Rows, ptr interface{}) error {
 func storeIntoPtr(ptr reflect.Value, result interface{}, index int) error {
 	// Check that passed value is a pointer
 	if ptr.Kind() != reflect.Ptr {
-		return fmt.Errorf("passed value should be a pointer to structure, got: %s", ptr.Type().String())
+		return fmt.Errorf("passed value should be a pointer, got: %s", ptr.Type().String())
 	}
 	elem := ptr.Elem()
 	// Store result

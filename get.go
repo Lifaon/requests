@@ -60,8 +60,8 @@ func (rq Request) GetOneField(args ...interface{}) error {
 }
 
 // GetFields prepares and makes a query, retrieves a Row, and scan it into
-// a slice of pointers to interface{}. Should be used for queries selecting
-// multiple fields from a single row
+// a slice of pointers. Should be used for queries selecting multiple fields
+// from a single row
 func (rq Request) GetFields(args ...interface{}) error {
 
 	// Retrieve row

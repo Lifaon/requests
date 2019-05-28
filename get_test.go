@@ -2,6 +2,7 @@ package requests_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
@@ -81,6 +82,26 @@ func TestGetOneField(t *testing.T) {
 		ExpectQuery().WillReturnRows(getSingleFieldRows()).RowsWillBeClosed()
 
 	err := rq.GetOneField()
+	assert.NoError(t, err, unexpected_error)
+	checkResults(t, mock)
+}
+
+// Test GetFields method
+func TestGetFields(t *testing.T) {
+	rq, mock, db := initRequest(t)
+	defer db.Close()
+
+	var id string
+	var createdAt time.Time
+	rq.Query = select_one_field
+	rq.Arg = []interface{}{
+		&id,
+		&createdAt,
+	}
+	mock.ExpectPrepare(select_one_field).WillBeClosed().
+		ExpectQuery().WillReturnRows(getStructRows()).RowsWillBeClosed()
+
+	err := rq.GetFields()
 	assert.NoError(t, err, unexpected_error)
 	checkResults(t, mock)
 }
